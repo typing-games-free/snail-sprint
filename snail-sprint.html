@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snail Sprint – Free Word Typing Race | Typing Games Free</title>
+<meta name="description" content="Type real words to push your snail past two rivals and cross the garden finish line first. A free typing race from Typing Games Free.">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:"Trebuchet MS","Segoe UI",Arial,sans-serif;background:#14281d;color:#fff;display:flex;flex-direction:column;align-items:center;min-height:100%}
+header{width:100%;background:#fff;display:flex;justify-content:center;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+header a{display:flex;align-items:center;text-decoration:none;color:#0f172a;font-weight:800;font-size:22px}
+header img{height:40px;width:auto;display:block}
+main{width:100%;max-width:900px;padding:12px}
+.hud{display:flex;gap:10px;margin-bottom:10px}
+.pill{flex:1;background:#1f3d2b;border-radius:10px;padding:6px 12px;font-size:13px;font-weight:700;letter-spacing:1px;color:#a7c4b0;display:flex;justify-content:space-between;align-items:center}
+.pill b{font-size:22px;color:#fff}
+.stage{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.5);line-height:0}
+canvas{width:100%;height:auto;display:block;background:#8fd3ff}
+.ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,30,18,.66);text-align:center;line-height:1.3;padding:14px}
+.ov.hide{display:none}
+.ov .logo{height:52px;max-width:80%;object-fit:contain;background:#fff;border-radius:10px;padding:6px 12px;margin-bottom:12px}
+.ov .logo-t{display:none;background:#fff;color:#0f172a;border-radius:10px;padding:8px 16px;font-weight:800;font-size:22px;margin-bottom:12px}
+.ov h1{font-size:clamp(28px,6vw,52px);color:#fde047;text-shadow:0 3px 0 #b45309;margin-bottom:8px}
+.ov p{font-size:clamp(13px,2.4vw,17px);color:#e2e8f0;max-width:540px;margin-bottom:6px}
+.big{font-size:clamp(18px,3.5vw,28px);font-weight:800;margin:4px 0}
+button{margin-top:14px;font:inherit;font-weight:800;font-size:clamp(18px,3vw,24px);color:#fff;background:#22c55e;border:0;border-bottom:5px solid #15803d;border-radius:14px;padding:10px 44px;cursor:pointer}
+button:hover{background:#4ade80}
+button:active{transform:translateY(3px);border-bottom-width:2px}
+.mute{position:absolute;top:8px;right:8px;margin:0;padding:4px 10px;font-size:18px;background:rgba(10,30,18,.6);border-bottom:0;border-radius:8px;z-index:3}
+footer{padding:14px;font-size:13px;color:#a7c4b0;text-align:center}
+footer a{color:#fde047}
+#kb{position:fixed;opacity:0;pointer-events:none;left:-100px;top:0;width:1px;height:1px}
+</style>
+</head>
+<body>
+<header>
+  <a href="https://typinggamesfree.io/" target="_blank" rel="noopener" title="Typing Games Free">
+    <img src="https://typinggamesfree.io/cache/data/image/options/typinggamesfree.io-h345x80.webp" alt="Typing Games Free" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span style="display:none">Typing Games Free</span>
+  </a>
+</header>
+<main>
+  <div class="hud">
+    <div class="pill">LEVEL <b id="hLevel">1</b></div>
+    <div class="pill">WPM <b id="hWpm">0</b></div>
+    <div class="pill">BEST WPM <b id="hBest">0</b></div>
+  </div>
+  <div class="stage">
+    <canvas id="c" width="800" height="450"></canvas>
+    <button class="mute" id="mute" title="Sound on/off">🔊</button>
+    <div class="ov" id="start">
+      <img class="logo" src="https://typinggamesfree.io/cache/data/image/options/typinggamesfree.io-h345x80.webp" alt="Typing Games Free" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <div class="logo-t">Typing Games Free</div>
+      <h1>🐌 Snail Sprint</h1>
+      <p>Race two rival snails around the garden! Type each word shown on screen – every correct letter moves your snail one step. Cross the flag first to level up.</p>
+      <p style="font-size:13px;color:#a7c4b0">Wrong key? Your snail just wiggles. Esc = pause.</p>
+      <button id="play">▶ PLAY</button>
+    </div>
+    <div class="ov hide" id="over">
+      <h1 id="oTitle">1st place!</h1>
+      <div class="big"><span id="oWpm">0</span> WPM · <span id="oAcc">100</span>% accuracy</div>
+      <p id="oMsg"></p>
+      <button id="again">▶ NEXT RACE</button>
+    </div>
+  </div>
+</main>
+<footer>More free games at <a href="https://typinggamesfree.io/" target="_blank" rel="noopener">typinggamesfree.io</a></footer>
+<input id="kb" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+<script>
+(function(){
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const W=800,H=450,TOTAL=40,X0=95,X1=700,LANES=[211,289,367];
+const $=id=>document.getElementById(id);
+
+/* meaningful words, grouped by keyboard row */
+const P1="all ask add dad sad had has gas fall hall flag glad half dash hash lass sash glass slash flash flask salad shall alfalfa lads fads".split(' ');
+const P2="tree water quiet write power tower pretty upper route trip ripe pie toy ship hippo piglet gold forest flower shadow pillow yellow tulip puppy sleep horse grass leaf rose wood eagle tiger otter pearl sky light field sheep kite goat".split(' ');
+const P3="snail garden rabbit butterfly rainbow sunny music banana orange monkey window village mountain river cabbage carrot cricket bridge picnic zebra lemon jungle bucket camera planet dinosaur".split(' ');
+function pool(l){return l<=1?P1:l===2?P1.concat(P2):P1.concat(P2,P3,P3)}
+
+let state='menu',level=1,bestWpm=0,t=0,cd=0,rt=0,muted=false,last=0,wig=0,mv=0,hudT=0;
+let words=[],wi=0,ci=0,typed=0,mistakes=0,rv=[],arrived=0,clouds=[];
+try{level=+localStorage.getItem('snailLevel')||1;bestWpm=+localStorage.getItem('snailBestWpm')||0}catch(e){}
+$('hLevel').textContent=level;$('hBest').textContent=bestWpm;
+for(let i=0;i<4;i++)clouds.push({x:Math.random()*W,y:20+Math.random()*80,s:.7+Math.random()*.6});
+
+let ac=null;
+function beep(f,d,type,v){if(muted)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.value=v||.06;g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+
+function buildWords(){
+  const p=pool(level),out=[];let n=0,tries=0;
+  while(n<TOTAL){const w=p[Math.floor(Math.random()*p.length)];if(out.includes(w)&&tries++<50)continue;out.push(w);n+=w.length}
+  return out;
+}
+function startRace(){
+  words=buildWords();wi=0;ci=0;typed=0;mistakes=0;arrived=0;rt=0;wig=0;mv=0;
+  const base=(6+2*Math.min(level,7))*5/60;
+  rv=[{c:0,f:.9,k:base,n:1,nt:0,fin:false},{c:0,f:1.05,k:base,n:1,nt:0,fin:false}];
+  state='count';cd=3.9;
+  $('start').classList.add('hide');$('over').classList.add('hide');
+  $('hLevel').textContent=level;$('hWpm').textContent=0;
+  $('kb').focus({preventScroll:true});
+}
+function wpm(){return rt>1?Math.round(typed/5/(rt/60)):0}
+function endRace(place){
+  state='done';
+  const w=wpm(),acc=typed+mistakes?Math.round(typed/(typed+mistakes)*100):100,old=level;
+  if(w>bestWpm){bestWpm=w;try{localStorage.setItem('snailBestWpm',w)}catch(e){}}
+  if(place<=2)level=Math.min(10,level+1);else level=Math.max(1,level-1);
+  try{localStorage.setItem('snailLevel',level)}catch(e){}
+  $('oTitle').textContent=['','🥇 1st place!','🥈 2nd place!','🥉 3rd place'][place];
+  $('oWpm').textContent=w;$('oAcc').textContent=acc;
+  $('oMsg').textContent=level>old?'Level up! Next race is Level '+level+'.':level<old?'Back to Level '+level+' – keep practising!':place<=2?'Top level reached – great typing!':'Stay on Level 1 and try again!';
+  $('hBest').textContent=bestWpm;$('hWpm').textContent=w;
+  beep(place===1?880:523,.4,'triangle',.1);
+  setTimeout(()=>{if(state==='done')$('over').classList.remove('hide')},900);
+}
+function press(k){
+  if(state!=='race')return;
+  const w=words[wi];
+  if(k===w[ci]){
+    ci++;typed++;mv=.25;beep(500+ci*40,.06,'square',.03);
+    if(ci>=w.length){ci=0;wi++;beep(800,.1,'triangle',.06)}
+    if(typed>=TOTAL){endRace(1+arrived)}
+  }else{mistakes++;wig=.35;beep(150,.12,'sawtooth',.05)}
+}
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(state==='race')state='paused';else if(state==='paused')state='race';return}
+  if((state==='menu'||(state==='done'&&!$('over').classList.contains('hide')))&&(e.key==='Enter'||e.key===' ')){e.preventDefault();startRace();return}
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.key.length===1&&/[a-z]/i.test(e.key)){e.preventDefault();press(e.key.toLowerCase())}
+});
+$('kb').addEventListener('input',e=>{const v=e.target.value.toLowerCase();e.target.value='';for(const ch of v)if(/[a-z]/.test(ch))press(ch)});
+cv.addEventListener('pointerdown',()=>$('kb').focus({preventScroll:true}));
+$('play').onclick=startRace;$('again').onclick=startRace;
+$('mute').onclick=()=>{muted=!muted;$('mute').textContent=muted?'🔇':'🔊'};
+
+function update(dt){
+  t+=dt;
+  clouds.forEach(c=>{c.x-=12*c.s*dt;if(c.x<-120){c.x=W+60;c.y=20+Math.random()*80}});
+  if(state==='paused'||state==='menu')return;
+  wig=Math.max(0,wig-dt);mv=Math.max(0,mv-dt);
+  if(state==='count'){cd-=dt;if(cd<=0){state='race';rt=0}return}
+  if(state==='race')rt+=dt;
+  rv.forEach(r=>{
+    if(r.fin)return;
+    r.nt-=dt;if(r.nt<=0){r.n=.75+Math.random()*.5;r.nt=.6+Math.random()*.6}
+    r.c+=r.k*r.f*r.n*dt;
+    if(r.c>=TOTAL){r.c=TOTAL;r.fin=true;arrived++}
+  });
+  if(state==='race'&&arrived>=2)endRace(3);
+  hudT-=dt;if(hudT<=0&&state==='race'){hudT=.3;$('hWpm').textContent=wpm()}
+}
+
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
+function cloud(c){ctx.fillStyle='rgba(255,255,255,.92)';const s=c.s;ctx.beginPath();ctx.arc(c.x,c.y,16*s,0,7);ctx.arc(c.x+20*s,c.y-8*s,22*s,0,7);ctx.arc(c.x+46*s,c.y,18*s,0,7);ctx.fill()}
+function snail(x,y,col,dark,rot,bob,label,me){
+  ctx.save();ctx.translate(x,y+bob);ctx.rotate(rot);
+  ctx.fillStyle='#fde8c8';
+  ctx.beginPath();ctx.ellipse(-4,-7,34,8,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(28,-13,9,0,7);ctx.fill();
+  ctx.strokeStyle='#fde8c8';ctx.lineWidth=3;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(31,-19);ctx.lineTo(37,-33);ctx.moveTo(25,-20);ctx.lineTo(25,-34);ctx.stroke();
+  [[37,-34],[25,-35]].forEach(p=>{ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(p[0],p[1],4,0,7);ctx.fill();ctx.fillStyle='#0f172a';ctx.beginPath();ctx.arc(p[0]+1,p[1],1.8,0,7);ctx.fill()});
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(-8,-27,20,0,7);ctx.fill();
+  ctx.strokeStyle=dark;ctx.lineWidth=3;ctx.beginPath();
+  ctx.arc(-8,-27,13,0.3,5.2);ctx.stroke();
+  ctx.beginPath();ctx.arc(-8,-27,7,3.5,8.6);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.beginPath();ctx.ellipse(-16,-38,6,3,-.6,0,7);ctx.fill();
+  ctx.rotate(-rot);
+  ctx.font='bold 14px Trebuchet MS,Arial';ctx.textAlign='center';ctx.fillStyle='#fff';ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=3;
+  ctx.fillText(label,0,-58);ctx.shadowBlur=0;
+  ctx.restore();
+}
+function draw(){
+  let g=ctx.createLinearGradient(0,0,0,170);g.addColorStop(0,'#5bbcff');g.addColorStop(1,'#d4f0ff');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,175);
+  ctx.fillStyle='#fde047';ctx.beginPath();ctx.arc(740,40,26,0,7);ctx.fill();
+  clouds.forEach(cloud);
+  ctx.fillStyle='#7bc47f';ctx.beginPath();ctx.ellipse(150,175,260,40,0,Math.PI,0);ctx.ellipse(560,175,300,30,0,Math.PI,0);ctx.fill();
+  ctx.fillStyle='#4ea65a';ctx.fillRect(0,172,W,H-172);
+  LANES.forEach((cy,i)=>{ctx.fillStyle=i%2?'#8fd36a':'#9be07a';ctx.fillRect(0,cy-39,W,78)});
+  ctx.fillStyle='#3f8f4b';ctx.fillRect(0,406,W,44);
+  for(let i=0;i<22;i++){const fx=20+i*37,fy=418+(i*13)%22;ctx.fillStyle=['#f472b6','#fbbf24','#fff','#a78bfa'][i%4];ctx.beginPath();ctx.arc(fx,fy,5,0,7);ctx.fill();ctx.fillStyle='#fde047';ctx.beginPath();ctx.arc(fx,fy,2,0,7);ctx.fill()}
+  // start & finish lines
+  ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillRect(58,172,4,234);
+  for(let r=0;r<20;r++)for(let c=0;c<2;c++){ctx.fillStyle=(r+c)%2?'#111':'#fff';ctx.fillRect(738+c*11,172+r*11.7,11,11.7)}
+  ctx.font='22px Arial';ctx.textAlign='center';ctx.fillText('🏁',750,166);
+
+  // snails
+  const info=[{n:'Sluggo',c:'#a855f7',d:'#7e22ce'},{n:'Turbo',c:'#14b8a6',d:'#0f766e'}];
+  const pp=state==='menu'?0:typed/TOTAL;
+  const ps=[{x:X0+pp*(X1-X0),y:LANES[2]+16,c:'#f97316',d:'#c2410c',n:'YOU',me:1},
+    ...[0,1].map(i=>({x:X0+(rv[i]?rv[i].c/TOTAL:0)*(X1-X0),y:LANES[i]+16,c:info[i].c,d:info[i].d,n:info[i].n}))];
+  ps.forEach((s,i)=>{
+    const laneY=s.y;ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=5;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(X0-34,laneY-1);ctx.lineTo(s.x-36,laneY-1);ctx.stroke();
+    const moving=s.me?mv>0:(state==='race'||state==='count'&&false);
+    const bob=moving?Math.sin(t*22+i)*1.8:0;
+    const rot=s.me&&wig>0?Math.sin(t*50)*.14*(wig/.35):0;
+    snail(s.x,s.y,s.c,s.d,rot,bob,s.n,s.me);
+  });
+
+  // word panel
+  ctx.fillStyle='rgba(255,255,255,.9)';rr(40,10,720,150,18);
+  if(state==='race'||state==='paused'||state==='done'||state==='count'){
+    const cw=words[Math.min(wi,words.length-1)]||'';
+    ctx.textAlign='left';ctx.font='bold 64px "Courier New",monospace';
+    const cwid=ctx.measureText('M').width,x0=W/2-cw.length*cwid/2;
+    ctx.fillStyle='#64748b';ctx.font='bold 14px Trebuchet MS,Arial';ctx.textAlign='center';ctx.fillText('TYPE THE WORD',W/2,36);
+    ctx.font='bold 64px "Courier New",monospace';ctx.textAlign='left';
+    for(let i=0;i<cw.length;i++){
+      const done=i<ci||wi>=words.length;
+      if(i===ci&&state!=='done'){ctx.fillStyle='#fde68a';rr(x0+i*cwid,64,cwid,70,8)}
+      ctx.fillStyle=done?'#16a34a':'#0f172a';ctx.fillText(cw[i],x0+i*cwid,114);
+    }
+    ctx.fillStyle='#94a3b8';ctx.font='bold 20px "Courier New",monospace';ctx.textAlign='center';
+    const nx=words.slice(wi+1,wi+4).join('   ');ctx.fillText(nx?'next: '+nx:'',W/2,148);
+  }
+  // overlays on canvas
+  ctx.textAlign='center';ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=8;ctx.fillStyle='#fff';
+  if(state==='count'){const n=Math.ceil(cd-.9);ctx.font='bold 110px Trebuchet MS,Arial';ctx.fillText(n>0?n:'GO!',W/2,300)}
+  if(state==='paused'){ctx.font='bold 54px Trebuchet MS,Arial';ctx.fillText('PAUSED',W/2,290);ctx.font='bold 20px Trebuchet MS,Arial';ctx.fillText('Press Esc to continue',W/2,325)}
+  ctx.shadowBlur=0;
+}
+function loop(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;update(dt);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
